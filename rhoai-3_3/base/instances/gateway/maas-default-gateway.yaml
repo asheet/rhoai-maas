@@ -18,14 +18,14 @@ spec:
     - allowedRoutes:
         namespaces:
           from: All
-      hostname: maas.apps.cluster-${UPDATEME}.opentlc.com
+      hostname: maas.apps.cluster-c2bpl.c2bpl.sandbox1599.opentlc.com
       name: http
       port: 80
       protocol: HTTP
     - allowedRoutes:
         namespaces:
           from: All
-      hostname: maas.apps.cluster-${UPDATEME}.opentlc.com
+      hostname: maas.apps.cluster-c2bpl.c2bpl.sandbox1599.opentlc.com
       name: https
       port: 443
       protocol: HTTPS

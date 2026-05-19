@@ -17,18 +17,13 @@ metadata:
   name: maas-authorino-allow
   namespace: redhat-ods-applications
   labels:
-    app.kubernetes.io/component: api
-    app.kubernetes.io/name: maas-api
+    app.opendatahub.io/modelsasservice: "true"
     app.kubernetes.io/part-of: models-as-a-service
-    app.opendatahub.io/modelsasservice: 'true'
-    maas.opendatahub.io/tenant-name: default-tenant
-    maas.opendatahub.io/tenant-namespace: models-as-a-service
+    app.kubernetes.io/component: networking
 spec:
   # Apply to all MaaS components (flexible for future components)
   podSelector:
     matchLabels:
-      app.kubernetes.io/component: api
-      app.kubernetes.io/name: maas-api
       app.kubernetes.io/part-of: models-as-a-service
   policyTypes:
     - Ingress

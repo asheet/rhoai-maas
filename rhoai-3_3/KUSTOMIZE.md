@@ -22,7 +22,7 @@ Notes:
 Make sure csv for rhcl has: - name: ISTIO_GATEWAY_CONTROLLER_NAMES
     value: 'istio.io/gateway-controller,openshift.io/gateway-controller/v1'
 
-2. (After Step 2) Before applying Gateway (STEP 3) UPDATE HOST NAME in gateway yaml.
+2. (After Step 2) Before applying Gateway (STEP 3), be sure to update the hostname in [maas-default-gateway.yaml](base/instances/gateway/maas-default-gateway.yaml).
 
 3. Add annotation to __Kuadrant / rh-connectivity-link ns — service authorinio-authorinio-authorization__
 
@@ -32,7 +32,7 @@ annotations:
 ```
 Delete `kuadrant-operator-controller` in rhcl namespace, it should come back up with cert.
 
-4. Update Authorino Authorino:
+4. In the `rh-connectivity-link` namespace, update the Authorino operator YAML, ignore the warning about Kuadrant managed resources:
 
 ```
   clusterWide: true

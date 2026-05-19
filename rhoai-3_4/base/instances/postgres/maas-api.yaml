@@ -1,0 +1,143 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  annotations:
+    platform.opendatahub.io/instance.name: default-modelsasservice
+    deployment.kubernetes.io/revision: '2'
+    internal.config.kubernetes.io/previousNamespaces: opendatahub
+    internal.config.kubernetes.io/previousKinds: Deployment
+    platform.opendatahub.io/instance.generation: '1'
+    internal.config.kubernetes.io/previousNames: maas-api
+    platform.opendatahub.io/version: 3.3.0
+    platform.opendatahub.io/instance.uid: 85e3f01b-287b-4c5f-889b-9b3b686e4f37
+    platform.opendatahub.io/type: OpenShift AI Self-Managed
+  name: maas-api
+  namespace: redhat-ods-applications
+  ownerReferences:
+    - apiVersion: components.platform.opendatahub.io/v1alpha1
+      kind: ModelsAsService
+      name: default-modelsasservice
+      controller: true
+      blockOwnerDeletion: true
+  labels:
+    app.kubernetes.io/component: api
+    app.kubernetes.io/name: maas-api
+    app.kubernetes.io/part-of: models-as-a-service
+    app.opendatahub.io/modelsasservice: 'true'
+    platform.opendatahub.io/part-of: modelsasservice
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: api
+      app.kubernetes.io/name: maas-api
+      app.kubernetes.io/part-of: models-as-a-service
+      app.opendatahub.io/modelsasservice: 'true'
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app.kubernetes.io/component: api
+        app.kubernetes.io/name: maas-api
+        app.kubernetes.io/part-of: models-as-a-service
+        app.opendatahub.io/modelsasservice: 'true'
+    spec:
+      restartPolicy: Always
+      serviceAccountName: maas-api
+      schedulerName: default-scheduler
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+      containers:
+        - resources:
+            limits:
+              cpu: 200m
+              memory: 128Mi
+            requests:
+              cpu: 50m
+              memory: 64Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: https
+              scheme: HTTPS
+            initialDelaySeconds: 5
+            timeoutSeconds: 3
+            periodSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
+          terminationMessagePath: /dev/termination-log
+          name: maas-api
+          command:
+            - ./maas-api
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: https
+              scheme: HTTPS
+            initialDelaySeconds: 30
+            timeoutSeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+          env:
+            - name: DB_CONNECTION_URL
+              valueFrom:
+                secretKeyRef:
+                  name: database-config
+                  key: DB_CONNECTION_URL
+            - name: GATEWAY_NAMESPACE
+              valueFrom:
+                configMapKeyRef:
+                  name: maas-parameters
+                  key: gateway-namespace
+            - name: GATEWAY_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: maas-parameters
+                  key: gateway-name
+            - name: SECURE
+              value: 'true'
+            - name: TLS_CERT
+              value: /etc/maas-api/tls/tls.crt
+            - name: TLS_KEY
+              value: /etc/maas-api/tls/tls.key
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+          ports:
+            - name: https
+              containerPort: 8443
+              protocol: TCP
+          imagePullPolicy: Always
+          volumeMounts:
+            - name: maas-api-tls
+              readOnly: true
+              mountPath: /etc/maas-api/tls
+          terminationMessagePolicy: File
+          image: 'registry.redhat.io/rhoai/odh-maas-api-rhel9@sha256:0c9a170711fd9ae1ce7ae3563446b361a41ed06fc90d570e0096a8229f52de75'
+          args:
+            - '--storage=external'
+      serviceAccount: maas-api
+      volumes:
+        - name: maas-api-tls
+          secret:
+            secretName: maas-api-serving-cert
+            defaultMode: 420
+      dnsPolicy: ClusterFirst
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 600

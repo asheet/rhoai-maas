@@ -1,0 +1,133 @@
+---
+apiVersion: extensions.kuadrant.io/v1alpha1
+kind: TelemetryPolicy
+metadata:
+  labels:
+    app.kubernetes.io/part-of: maas-observability
+  name: user-group
+  namespace: openshift-ingress
+spec:
+  metrics:
+    default:
+      labels:
+        model: responseBodyJSON("/model")
+        tier: auth.identity.tier
+        user: auth.identity.userid
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: Gateway
+    name: maas-default-gateway
+
+---
+apiVersion: kuadrant.io/v1
+kind: RateLimitPolicy
+metadata:
+  name: gateway-rate-limits
+  namespace: openshift-ingress
+spec:
+  limits:
+    enterprise:
+      counters:
+      - expression: auth.identity.userid
+      rates:
+      - limit: 50
+        window: 2m
+      when:
+      - predicate: |
+          auth.identity.tier == "enterprise"
+    free:
+      counters:
+      - expression: auth.identity.userid
+      rates:
+      - limit: 5
+        window: 2m
+      when:
+      - predicate: |
+          auth.identity.tier == "free"
+    premium:
+      counters:
+      - expression: auth.identity.userid
+      rates:
+      - limit: 20
+        window: 2m
+      when:
+      - predicate: |
+          auth.identity.tier == "premium"
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: Gateway
+    name: maas-default-gateway
+
+---
+apiVersion: kuadrant.io/v1alpha1
+kind: TokenRateLimitPolicy
+metadata:
+  name: gateway-token-rate-limits
+  namespace: openshift-ingress
+spec:
+  limits:
+    enterprise-user-tokens:
+      counters:
+      - expression: auth.identity.userid
+      rates:
+      - limit: 100000
+        window: 1m
+      when:
+      - predicate: |
+          auth.identity.tier == "enterprise"
+    free-user-tokens:
+      counters:
+      - expression: auth.identity.userid
+      rates:
+      - limit: 100
+        window: 1m
+      when:
+      - predicate: |
+          auth.identity.tier == "free"
+    premium-user-tokens:
+      counters:
+      - expression: auth.identity.userid
+      rates:
+      - limit: 50000
+        window: 1m
+      when:
+      - predicate: |
+          auth.identity.tier == "premium"
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: Gateway
+    name: maas-default-gateway
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    app: limitador
+    app.kubernetes.io/part-of: maas-observability
+  name: limitador-metrics
+  namespace: rh-connectivity-link
+spec:
+  endpoints:
+  - interval: 30s
+    path: /metrics
+    port: http
+  selector:
+    matchLabels:
+      app: limitador
+
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: maas-api-backend-tls
+  namespace: openshift-ingress
+spec:
+  host: maas-api.redhat-ods-applications.svc.cluster.local
+  trafficPolicy:
+    portLevelSettings:
+    - port:
+        number: 8443
+      tls:
+        insecureSkipVerify: true
+        mode: SIMPLE
+---

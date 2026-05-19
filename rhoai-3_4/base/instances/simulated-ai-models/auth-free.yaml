@@ -1,0 +1,39 @@
+apiVersion: maas.opendatahub.io/v1alpha1
+kind: MaaSSubscription
+metadata:
+  name: simulator-subscription
+  namespace: ai-models
+spec:
+  owner:
+    groups:
+      - name: system:authenticated
+    users: []
+  modelRefs:
+    - name: simulated
+      tokenRateLimits:
+        - limit: 100
+          window: 1m
+---
+apiVersion: maas.opendatahub.io/v1alpha1
+kind: MaaSModelRef
+metadata:
+  name: simulated
+  namespace: ai-models
+spec:
+  modelRef:
+    kind: LLMInferenceService
+    name: simulated
+    namespace: ai-models
+---
+apiVersion: maas.opendatahub.io/v1alpha1
+kind: MaaSAuthPolicy
+metadata:
+  name: simulator-access
+  namespace: ai-models
+spec:
+  modelRefs:
+    - simulated
+  subjects:
+    groups:
+      - name: system:authenticated
+    users: []

@@ -11,3 +11,6 @@ resources:
   - ../../base/operators/connectivity-link
   - ../../base/operators/leaderworkerset
   - ../../base/operators/rhoai
+  - ../../base/operators/rhbuild-opentelemetry-operator
+  - ../../base/operators/temo-operator
+  - ../../base/operators/cluster-observability
