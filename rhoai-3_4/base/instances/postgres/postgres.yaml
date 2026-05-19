@@ -44,15 +44,7 @@ spec:
     spec:
       containers:
       - name: postgres
-<<<<<<< HEAD
         image: registry.redhat.io/rhel9/postgresql-15:latest
-=======
-<<<<<<< HEAD
-        image: registry.redhat.io/rhel9/postgresql-16:latest
-=======
-        image: registry.redhat.io/rhel9/postgresql-15:latest
->>>>>>> 08c87ad (Added RHOAI 3.4 folder, started work on bootstrap.sh)
->>>>>>> asheet-main
         env:
         - name: POSTGRESQL_USER
           valueFrom:

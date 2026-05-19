@@ -1,6 +1,0 @@
-# Kuadrant namespace and Kuadrant CR for gateway auth/rate-limiting.
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-
-resources:
-  - ../../base/instances/odhdashboard

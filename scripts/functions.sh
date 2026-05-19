@@ -395,3 +395,107 @@ wait_for_install_plan_completion(){
   echo "${OPERATOR_SUB}/${OPERATOR_NS} successfully installed."
   echo ""
 }
+
+get_cluster_domain(){
+  oc get ingresses.config.openshift.io cluster -o jsonpath='{.spec.domain}'
+}
+
+patch_gateway_hostname(){
+  local cluster_domain="$1"
+  local kustomize_dir="$2"
+  local gateway_host="maas.${cluster_domain}"
+
+  if [ -z "${cluster_domain}" ]; then
+    echo "ERROR: Could not determine cluster ingress domain."
+    exit 1
+  fi
+
+  echo "Using MaaS gateway hostname: ${gateway_host}"
+  kustomize build "${kustomize_dir}/overlays/03-gateway" \
+    | sed "s|maas.apps.cluster-\${UPDATEME}.opentlc.com|${gateway_host}|g" \
+    | oc apply -f-
+}
+
+patch_rhcl_gateway_controller_names(){
+  local csv_name
+  csv_name=$(oc get csv -n rh-connectivity-link \
+    -l operators.coreos.com/rhcl-operator.rh-connectivity-link='' \
+    -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+
+  if [ -z "${csv_name}" ]; then
+    echo "WARNING: RHCL CSV not found; skip ISTIO_GATEWAY_CONTROLLER_NAMES patch."
+    return 0
+  fi
+
+  echo "Patching ${csv_name} with ISTIO_GATEWAY_CONTROLLER_NAMES..."
+  oc patch csv "${csv_name}" -n rh-connectivity-link --type=json -p='[
+    {"op": "add", "path": "/spec/install/spec/deployments/0/spec/template/spec/containers/0/env/-",
+     "value": {"name": "ISTIO_GATEWAY_CONTROLLER_NAMES",
+               "value": "istio.io/gateway-controller,openshift.io/gateway-controller/v1"}}
+  ]' 2>/dev/null || \
+  oc set env deployment/rhcl-operator-controller-manager \
+    -n rh-connectivity-link \
+    ISTIO_GATEWAY_CONTROLLER_NAMES='istio.io/gateway-controller,openshift.io/gateway-controller/v1' \
+    --containers=manager 2>/dev/null || \
+    echo "WARNING: Could not patch RHCL for gateway controllers; verify ISTIO_GATEWAY_CONTROLLER_NAMES manually."
+}
+
+configure_authorino_tls(){
+  echo "Configuring Authorino serving certificate in rh-connectivity-link..."
+  oc annotate service authorino-authorino-authorization \
+    -n rh-connectivity-link \
+    service.beta.openshift.io/serving-cert-secret-name=authorino-server-cert \
+    --overwrite 2>/dev/null || \
+    echo "WARNING: authorino-authorino-authorization service not found yet; retry after RHCL is ready."
+
+  oc patch authorino authorino -n rh-connectivity-link --type=merge -p '{
+    "spec": {
+      "clusterWide": true,
+      "healthz": {},
+      "listener": {
+        "ports": {},
+        "tls": {
+          "certSecretRef": {"name": "authorino-server-cert"},
+          "enabled": true
+        }
+      }
+    }
+  }' 2>/dev/null || \
+    echo "WARNING: Could not patch Authorino CR; see rhoai-3_4/KUSTOMIZE.md."
+
+  oc delete pod -n rh-connectivity-link -l control-plane=controller-manager,app.kubernetes.io/name=kuadrant-operator 2>/dev/null || true
+}
+
+wait_for_datascience_cluster(){
+  echo "Waiting for DataScienceCluster/default-dsc to become Ready..."
+  oc wait datasciencecluster/default-dsc \
+    -n redhat-ods-applications \
+    --for=condition=Ready \
+    --timeout=45m 2>/dev/null || \
+  oc wait datasciencecluster/default-dsc \
+    -n redhat-ods-applications \
+    --for=jsonpath='{.status.phase}'=Ready \
+    --timeout=45m 2>/dev/null || \
+    echo "WARNING: DSC wait timed out; verify: oc get dsc -n redhat-ods-applications"
+}
+
+wait_for_postgres(){
+  echo "Waiting for postgres deployment in redhat-ods-applications..."
+  oc rollout status deployment/postgres -n redhat-ods-applications --timeout=15m
+}
+
+apply_overlay(){
+  local kustomize_dir="$1"
+  local overlay="$2"
+  echo ""
+  echo "=========================================================================="
+  echo " Applying ${kustomize_dir}/overlays/${overlay}"
+  echo "=========================================================================="
+  apply_firmly "${kustomize_dir}/overlays/${overlay}"
+}
+
+wait_for_observability_operators(){
+  wait_for_install_plan_completion "openshift-cluster-observability-operator" "cluster-observability-operator"
+  wait_for_install_plan_completion "openshift-tempo-operator" "tempo-product"
+  wait_for_install_plan_completion "openshift-opentelemetry-operator" "opentelemetry-product"
+}

@@ -122,7 +122,7 @@ metadata:
   name: maas-api-backend-tls
   namespace: openshift-ingress
 spec:
-  host: maas-api.opendatahub.svc.cluster.local
+  host: maas-api.redhat-ods-applications.svc.cluster.local
   trafficPolicy:
     portLevelSettings:
     - port:
